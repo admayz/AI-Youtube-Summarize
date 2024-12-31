@@ -5,9 +5,10 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
 from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound
 from fastapi.middleware.cors import CORSMiddleware
-import openai
-import http.client
-import json
+from semantic_kernel import Kernel
+from semantic_kernel.connectors.ai.google.google_ai import GoogleAIChatCompletion, GoogleAIChatPromptExecutionSettings
+from semantic_kernel.contents import ChatHistory
+from google.protobuf.json_format import MessageToDict
 
 # Logging setup
 def setup_logging():
@@ -46,18 +47,11 @@ logger.info("Application starting and CORS middleware added.")
 # Load .env file
 load_dotenv()
 
-# Load OpenAI API key from environment variable
-openai_api_key = os.getenv("OPENAI_API_KEY")
-if not openai_api_key:
-    logger.error("OpenAI API key is missing.")
-    raise RuntimeError("OpenAI API key is missing.")
-
-try:
-    openai.api_key = openai_api_key
-    logger.info("OpenAI client initialized successfully.")
-except Exception as e:
-    logger.error(f"Failed to initialize OpenAI client: {e}")
-    raise RuntimeError(f"Failed to initialize OpenAI client: {e}")
+# Load API key from environment variable
+api_key = os.getenv("AI_KEY")
+if not api_key:
+    logger.error("API key is missing.")
+    raise RuntimeError("API key is missing.")
 
 # Map language codes to English language names for better clarity in prompts
 language_map = {
@@ -67,7 +61,6 @@ language_map = {
     "fr": "French",
     "de": "German",
     "hi": "Hindi",
-    "ar": "Arabic",
     "pt": "Portuguese",
     "ru": "Russian",
     "ja": "Japanese",
@@ -117,7 +110,7 @@ def fetch_transcript(video_id, preferred_languages):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/transcript")
-def get_transcript(
+async def get_transcript(
     video_id: str = Query(..., description="The YouTube video ID"),
     summary_language: str = Query("tr", description="Preferred summary language (e.g., 'en', 'tr', 'es')")
 ):
@@ -125,8 +118,8 @@ def get_transcript(
 
     # Validate summary_language parameter
     if summary_language not in language_map:
-        logger.warning(f"Invalid language code: {summary_language}. Defaulting to 'en'.")
-        summary_language = "en"
+        logger.warning(f"Invalid language code: {summary_language}. Defaulting to 'tr'.")
+        summary_language = "tr"
 
     # Preferred languages for transcripts (in order)
     preferred_languages = [
@@ -140,77 +133,33 @@ def get_transcript(
         full_transcript_text = " ".join([entry['text'] for entry in transcript_data])
         logger.info("Transcript text combined successfully.")
 
-        # Determine the target language name from the map, defaulting to English if not found
-        chosen_language_name = language_map.get(summary_language, "English")
+        # Determine the target language name from the map, defaulting to Turkish if not found
+        chosen_language_name = language_map.get(summary_language, "Turkish")
 
-        # Create prompt for OpenAI
-        prompt = f"Please summarize the following transcript in {chosen_language_name}:\n\n{full_transcript_text}"
-        logger.info("Prompt created for OpenAI.")
+        # Create Microsoft Semantic Kernel
+        kernel = Kernel()
+        chat_completion_service = GoogleAIChatCompletion(
+            gemini_model_id="gemini-2.0-flash-exp",
+            api_key=api_key,
+            service_id="gemini"
+        )
+        execution_settings = GoogleAIChatPromptExecutionSettings()
+        kernel.add_service(chat_completion_service)
 
-        headers = {
-            'Content-Type': 'application/json'
-        }
+        chat_history = ChatHistory()
+        chat_history.add_system_message(f"Please summarize the following transcript in {chosen_language_name}. Just summarize and do not add any headings.")
+        chat_history.add_user_message(f"{full_transcript_text}")
+        
+        response = await chat_completion_service.get_chat_message_content(
+            chat_history=chat_history,
+            settings=execution_settings,
+        )
 
-        payload = {
-            'model': "gemma-2-27b-it",
-            'messages': [
-                {
-                    "role": "system",
-                    "content": (
-                        f"You are an assistant specializing in summarizing transcripts into {chosen_language_name}. "
-                        "Please provide a brief, coherent summary that captures the most important points and ideas from the transcript. "
-                        "Do not include extraneous commentary, background information, or introductions. "
-                        "The summary should be clear, concise, and easy to follow for someone who has not read the full transcript."
-                    )
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            'temperature': 0.8 
-        }
-
-        conn = http.client.HTTPConnection('localhost:1234')
-        conn.request('POST', '/v1/chat/completions', body=json.dumps(payload), headers=headers)
-
-        response = conn.getresponse()
-        data = response.read()
-
-        response_json = json.loads(data.decode('utf-8'))
-       
-
-        # Call OpenAI API for summarization
-        # logger.info("Sending summarization request to OpenAI API.")
-        # response = openai.chat.completions.create(
-        #     model="gpt-4o-mini", # Check if this model is correct
-        #     messages=[
-        #         {
-        #             "role": "system",
-        #             "content": (
-        #                 f"You are an assistant specializing in summarizing transcripts into {chosen_language_name}. "
-        #                 "Please provide a brief, coherent summary that captures the most important points and ideas from the transcript. "
-        #                 "Do not include extraneous commentary, background information, or introductions. "
-        #                 "The summary should be clear, concise, and easy to follow for someone who has not read the full transcript."
-        #             )
-        #         },
-        #         {
-        #             "role": "user",
-        #             "content": prompt
-        #         }
-        #     ],
-        #     temperature=0.8,
-        #     max_tokens=3900,
-        #     top_p=1.0
-        # )
-        # logger.info("OpenAI API response received.")
-
-        # summary = response.choices[0].message.content.strip()
-
-
-        summary = response_json['choices'][0]['message']['content']
+        logger.info("Microsoft Semantic Kernel created successfully.")
+        
+        summary = response.content if hasattr(response, 'content') else str(response)
         logger.info("Summary successfully created.")
-
+        
         return {"summary": summary}
 
     except HTTPException as http_exc:
@@ -221,4 +170,4 @@ def get_transcript(
         raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="localhost", port=8000)

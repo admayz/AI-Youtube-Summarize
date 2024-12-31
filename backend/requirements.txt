@@ -1,5 +1,6 @@
 fastapi
 uvicorn
 youtube-transcript-api
-openai
-python-dotenv 
+python-dotenv
+semantic_kernel
+semantic-kernel[google]
