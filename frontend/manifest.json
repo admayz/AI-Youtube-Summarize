@@ -1,8 +1,8 @@
 {
-    "name": "YouTube Summarizer MVP",
-    "version": "0.1",
+    "name": "YouTube AI Summarizer",
+    "version": "1.0",
     "manifest_version": 3,
-    "description": "MVP: Summarize YouTube videos using ChatGPT 4o mini API.",
+    "description": "Summarize YouTube videos using Microsoft Semantic Kernel.",
     "action":{
         "default_popup": "popup.html"
       },

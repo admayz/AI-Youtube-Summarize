@@ -19,10 +19,11 @@ function displayTranscript(text) {
     modal.style.left = '50%';
     modal.style.top = '50%';
     modal.style.transform = 'translate(-50%, -50%)';
-    modal.style.backgroundColor = isDarkMode ? '#333' : 'white';
+    modal.style.backgroundColor = isDarkMode ? 'black' : 'white';
     modal.style.color = isDarkMode ? 'white' : 'black';
     modal.style.padding = '20px';
     modal.style.borderRadius = '8px';
+    modal.style.border = isDarkMode ? '1px solid white' : '1px solid black';
     modal.style.boxShadow = isDarkMode
         ? '0 4px 6px rgba(255, 255, 255, 0.1)'
         : '0 4px 6px rgba(0, 0, 0, 0.1)';
@@ -31,51 +32,47 @@ function displayTranscript(text) {
     modal.style.overflow = 'auto';
     modal.style.zIndex = '10000';
 
-    // Add transcript text
-    const textContent = document.createElement('pre');
-    textContent.style.whiteSpace = 'pre-wrap';
-    textContent.style.wordBreak = 'break-word';
-    textContent.style.margin = '0';
-    textContent.style.fontSize = '14px';
-    textContent.textContent = text;
-
     // Add close button
     const closeButton = document.createElement('button');
-    closeButton.textContent = 'Close';
-    closeButton.style.marginTop = '10px';
-    closeButton.style.padding = '5px 10px';
+    closeButton.textContent = 'X';
     closeButton.style.cursor = 'pointer';
-    closeButton.style.backgroundColor = isDarkMode ? '#555' : '#f0f0f0';
+    closeButton.style.backgroundColor = isDarkMode ? '#151515' : '#f0f0f0';
     closeButton.style.color = isDarkMode ? 'white' : 'black';
-    closeButton.style.border = isDarkMode ? '1px solid #777' : '1px solid #ccc';
+    closeButton.style.border = isDarkMode ? '1px solid white' : '1px solid black';
     closeButton.style.borderRadius = '4px';
+    closeButton.style.position = 'relative';
+    closeButton.style.height = '25px';
+    closeButton.style.width = '25px';
     closeButton.style.marginRight = '10px';
+    closeButton.style.marginTop = '15px';
     closeButton.onclick = () => {
         overlay.remove();
         modal.remove();
     };
 
-    // Add copy button
-    const copyButton = document.createElement('button');
-    copyButton.textContent = 'Copy';
-    copyButton.style.marginTop = '10px';
-    copyButton.style.padding = '5px 10px';
-    copyButton.style.cursor = 'pointer';
-    copyButton.style.backgroundColor = isDarkMode ? '#555' : '#f0f0f0';
-    copyButton.style.color = isDarkMode ? 'white' : 'black';
-    copyButton.style.border = isDarkMode ? '1px solid #777' : '1px solid #ccc';
-    copyButton.style.borderRadius = '4px';
-    copyButton.onclick = async () => {
-        try {
-            await navigator.clipboard.writeText(textContent.textContent);
-            copyButton.textContent = 'Copied!';
-            setTimeout(() => {
-                copyButton.textContent = 'Copy';
-            }, 2000);
-        } catch (err) {
-            console.error('Failed to copy text:', err);
-        }
-    };
+    //Add title
+    const TitleContent = document.createElement('p');
+    TitleContent.style.margin = '0';
+    TitleContent.style.fontSize = '2.5rem';
+    TitleContent.style.padding = '10px';
+    TitleContent.textContent = "Özet";
+
+    // Add buttons in a button container to keep them aligned
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.justifyContent = 'space-between';
+    buttonContainer.appendChild(TitleContent);
+    buttonContainer.appendChild(closeButton);
+    
+    modal.appendChild(buttonContainer);
+
+    // Add transcript text
+    const textContent = document.createElement('p');
+    textContent.style.margin = '0';
+    textContent.style.fontSize = '1.5rem';
+    textContent.style.textAlign = 'justify';
+    textContent.style.padding = '10px';
+    textContent.textContent = text;
 
     // Add overlay
     const overlay = document.createElement('div');
@@ -92,19 +89,17 @@ function displayTranscript(text) {
     };
 
     modal.appendChild(textContent);
-    // Add buttons in a button container to keep them aligned
-    const buttonContainer = document.createElement('div');
-    buttonContainer.style.display = 'flex';
-    buttonContainer.style.marginTop = '10px';
-    buttonContainer.appendChild(closeButton);
-    buttonContainer.appendChild(copyButton);
-
-    modal.appendChild(buttonContainer);
 
     document.body.appendChild(overlay);
     document.body.appendChild(modal);
 }
 
+// Zamanı güzel formatlama fonksiyonu
+function formatTime(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
 
 // Show Loading Spinner
 function showLoadingSpinner() {
@@ -200,7 +195,7 @@ function addSummarizeButtonIfNeeded() {
     if (subscribeBtnDiv && !document.querySelector('#mySummarizeButton')) {
         const summarizeBtn = document.createElement('button');
         summarizeBtn.id = 'mySummarizeButton';
-        summarizeBtn.textContent = '🔍 Ai ile Özetle';
+        summarizeBtn.textContent = 'Ai ile Özetle';
 
         summarizeBtn.style.display = 'inline-flex';
         summarizeBtn.style.alignItems = 'center';
